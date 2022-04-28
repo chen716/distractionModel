@@ -1,5 +1,5 @@
 # Program constructs Concentration Index and returns a classification of engagement.
-
+from connection import connection
 import cv2
 import numpy as np
 import dlib
@@ -11,12 +11,14 @@ class analysis:
 
     # Initialise models
     def __init__(self):
+        
         self.emotion_model = load_model('./util/model/emotion_recognition.h5')
         self.detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor(
             "./util/model/shape_predictor_68_face_landmarks.dat")
         self.faceCascade = cv2.CascadeClassifier(
             './util/model/haarcascade_frontalface_default.xml')
+        self.conn = connection()
         self.x = 0
         self.y = 0
         self.emotion = 5
@@ -90,6 +92,7 @@ class analysis:
 # Main function for analysis
 
     def detect_face(self, frame):
+        #this is the actual image
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         font = cv2.FONT_HERSHEY_SIMPLEX
         faces = self.detector(gray)
@@ -108,21 +111,29 @@ class analysis:
             hor_line = cv2.line(frame, left_point, right_point, (0, 255, 0), 2)
             ver_line = cv2.line(frame, center_top,
                                 center_bottom, (0, 255, 0), 2)
+            #this is the raw_data section
             left_eye_ratio = self.get_blinking_ratio(frame,
                                                      [36, 37, 38, 39, 40, 41], landmarks)
 
             gaze_ratio_lr, gaze_ratio_ud = self.get_gaze_ratio(frame,
                                                                [36, 37, 38, 39, 40, 41], landmarks, gray)
 
+            #starting here is the result section
+            
+            
             benchmark.append([gaze_ratio_lr, gaze_ratio_ud, left_eye_ratio])
             emotion = self.detect_emotion(gray)
+            
+            
             ci = self.gen_concentration_index()
-            # cv2.putText(frame, "x: "+str(gaze_ratio_lr),
-            #             (50, 100), font, 2, (0, 0, 255), 3)
-            # cv2.putText(frame, "y: "+str(gaze_ratio_ud),
-            #             (50, 150), font, 2, (0, 0, 255), 3)
-            # cv2.putText(frame, "Eye Size: "+str(left_eye_ratio),
-            #             (50, 200), font, 2, (0, 0, 255), 3)
+            print("this is the ci: ",ci)
+            """cv2.putText(frame, "x: "+str(gaze_ratio_lr),
+                        (50, 100), font, 2, (0, 0, 255), 3)
+            cv2.putText(frame, "y: "+str(gaze_ratio_ud),
+                        (50, 150), font, 2, (0, 0, 255), 3)
+            cv2.putText(frame, "Eye Size: "+str(left_eye_ratio),
+                       (50, 200), font, 2, (0, 0, 255), 3)
+            """
             emotions = {0: 'Angry', 1: 'Fear', 2: 'Happy',
                         3: 'Sad', 4: 'Surprised', 5: 'Neutral'}
             # if emotion:
@@ -139,8 +150,7 @@ class analysis:
 
     def detect_emotion(self, gray):
         # Dictionary for emotion recognition model output and emotions
-        emotions = {0: 'Angry', 1: 'Fear', 2: 'Happy',
-                    3: 'Sad', 4: 'Surprised', 5: 'Neutral'}
+        emotions = {0: 'Angry', 1: 'Fear', 2: 'Happy', 3: 'Sad', 4: 'Surprised', 5: 'Neutral'}
 
         # Face detection takes approx 0.07 seconds
         faces = self.faceCascade.detectMultiScale(
@@ -211,6 +221,9 @@ class analysis:
 # Concentration index is a percentage : max weights product = 4.5
         concentration_index = (
             emotionweights[self.emotion] * gaze_weights) / 4.5
+        print("this is raw ci: ",concentration_index )
+        
+        self.conn.sendStudentEngagementInfo("Eric", concentration_index)
         if concentration_index > 0.65:
             return "You are highly engaged!"
         elif concentration_index > 0.25 and concentration_index <= 0.65:
